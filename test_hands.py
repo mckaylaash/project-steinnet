@@ -15,15 +15,9 @@ def run_improved_test():
     zone_size = 400  # Increased this slightly so it's easier to find stuff
     
     print("--- SCRIPT ACTIVE ---")
-    print("Hold 'q' at any time to ABORT.")
     time.sleep(5)
 
     while True:
-        # NEW: Check for the 'q' key every loop
-        if keyboard.is_pressed('q'):
-            print("Keyboard interrupt! Stopping...")
-            break
-
         screen = pyautogui.screenshot()
         found_target = False
 
