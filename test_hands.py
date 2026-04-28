@@ -13,8 +13,8 @@ def run_steinnet_v2():
     scale = screenshot.width / logical_w
     
     print(f"Detected Scale: {scale}")
-    print("Starting in 5 seconds... Stand near some trees!")
-    time.sleep(5)
+    print("Starting in 7 seconds... Stand near some trees!")
+    time.sleep(7)
 
     while True:
         # Take a fresh screenshot
