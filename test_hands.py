@@ -33,6 +33,7 @@ def run_color_test():
                 # Logic: Is it 'Green enough'? 
                 # (High green, low red, low blue)
                 if g > MIN_GREEN and r < MAX_RED and b < MAX_BLUE:                     
+                    found_target = True
                     # CALIBRATE FOR MAC: Divide by 2
                     target_x = x / 2
                     target_y = y / 2
