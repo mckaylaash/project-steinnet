@@ -32,20 +32,19 @@ def run_color_test():
 
                 # Logic: Is it 'Green enough'? 
                 # (High green, low red, low blue)
-                if g > MIN_GREEN and r < MAX_RED and b < MAX_BLUE:
-                    print(f"Target shade found at ({x}, {y})! Clicking...")
-                    
-                    # Move and Click
-                    pyautogui.click(x, y)
-                    
-                    # 4. THE WAIT
-                    # Wait 6 seconds for the character to walk over and chop.
-                    # Then click again in the same spot to 'Loot' the log!
-                    time.sleep(6)
-                    print("Attempting to loot log...")
-                    pyautogui.click(x, y) 
-                    
-                    found_target = True
+                if g > MIN_GREEN and r < MAX_RED and b < MAX_BLUE:                     
+                    # CALIBRATE FOR MAC: Divide by 2
+                    target_x = x / 2
+                    target_y = y / 2
+    
+                    print(f"Found pixels at {x},{y}. Moving mouse to logical {target_x},{target_y}")
+    
+                    # Move and Click with a tiny duration so you can see it move
+                    pyautogui.moveTo(target_x, target_y, duration=0.2)
+                    pyautogui.click()
+    
+                    time.sleep(6) # Wait for chopping
+                    pyautogui.click() # Looting click
                     break
             if found_target: break
 
