@@ -15,15 +15,25 @@ def run_calibrated_test():
     print("--- 5 SECONDS TO SWITCH TO STEINWORLD ---")
     time.sleep(5)
 
+    # 1. DEFINE THE 'INTERACTION ZONE'
+    # We only care about pixels near the center of the screen
+    center_x, center_y = (logical_w * scale) / 2, (logical_h * scale) / 2
+    zone_size = 300 # This is a box around your character
+    
+    start_x = int(center_x - zone_size)
+    end_x = int(center_x + zone_size)
+    start_y = int(center_y - zone_size)
+    end_y = int(center_y + zone_size)
+
     while True:
         screen = pyautogui.screenshot()
-        # Scan every 20th pixel
-        for x in range(0, screen.width, 20):
-            for y in range(0, screen.height, 20):
+        # Scan every 15th pixel
+        for x in range(start_x, end_x, 15):
+            for y in range(start_y, end_y, 15):
                 r, g, b = screen.getpixel((x, y))[:3]
 
                 # Adjust these numbers based on your tree color!
-                if g > 130 and r < 100 and b < 100:
+                if g > 160 and r < 70 and b < 70:
                     # THE FIX: Divide the pixel coordinate by the scale
                     target_x = x / scale
                     target_y = y / scale
