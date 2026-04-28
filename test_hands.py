@@ -1,59 +1,54 @@
 import pyautogui
 import time
+import keyboard  # New library for the key-kill
 
-# 1. THE PANIC BUTTON
+# 1. THE PANIC BUTTONS
 pyautogui.FAILSAFE = True
 
-def run_calibrated_test():
-    # --- AUTO-CALIBRATION FOR MAC ---
+def run_improved_test():
     logical_w, logical_h = pyautogui.size()
     screenshot = pyautogui.screenshot()
-    # This magic number handles the Retina display scale (usually 2.0)
     scale = screenshot.width / logical_w
     
-    print(f"Mac Scale Factor: {scale}")
-    print("--- 5 SECONDS TO SWITCH TO STEINWORLD ---")
+    # 2. SEARCH ZONE (Around your character in the center)
+    center_x, center_y = (screenshot.width / 2), (screenshot.height / 2)
+    zone_size = 400  # Increased this slightly so it's easier to find stuff
+    
+    print("--- SCRIPT ACTIVE ---")
+    print("Hold 'q' at any time to ABORT.")
     time.sleep(5)
 
-    # 1. DEFINE THE 'INTERACTION ZONE'
-    # We only care about pixels near the center of the screen
-    center_x, center_y = (logical_w * scale) / 2, (logical_h * scale) / 2
-    zone_size = 300 # This is a box around your character
-    
-    start_x = int(center_x - zone_size)
-    end_x = int(center_x + zone_size)
-    start_y = int(center_y - zone_size)
-    end_y = int(center_y + zone_size)
-
     while True:
+        # NEW: Check for the 'q' key every loop
+        if keyboard.is_pressed('q'):
+            print("Keyboard interrupt! Stopping...")
+            break
+
         screen = pyautogui.screenshot()
-        # Scan every 15th pixel
-        for x in range(start_x, end_x, 15):
-            for y in range(start_y, end_y, 15):
+        found_target = False
+
+        # 3. RELAXED COLOR SEARCH
+        # If it wasn't moving, the previous green was too strict.
+        # Let's look for anything that is 'Mostly Green'
+        for x in range(int(center_x - zone_size), int(center_x + zone_size), 15):
+            for y in range(int(center_y - zone_size), int(center_y + zone_size), 15):
+                
+                # Safety check to stay within screen bounds
+                if x >= screen.width or y >= screen.height: continue
+                
                 r, g, b = screen.getpixel((x, y))[:3]
 
-                # Adjust these numbers based on your tree color!
-                if g > 160 and r < 70 and b < 70:
-                    # THE FIX: Divide the pixel coordinate by the scale
+                # RELAXED LOGIC: Green must be the dominant color
+                if g > r and g > b and g > 80:
                     target_x = x / scale
                     target_y = y / scale
                     
-                    print(f"Tree found! Moving to calibrated: {target_x}, {target_y}")
-                    
-                    # Move smoothly so you can see if it's accurate
-                    pyautogui.moveTo(target_x, target_y, duration=0.5)
+                    print(f"Green spotted! Moving to {target_x}, {target_y}")
+                    pyautogui.moveTo(target_x, target_y, duration=0.2)
                     pyautogui.click()
                     
-                    # Wait for chopping, then click again for the log
-                    time.sleep(6)
-                    pyautogui.click() 
-                    
-                    # Restart the search
+                    time.sleep(6) # Wait for chopping
+                    pyautogui.click() # Looting click
+                    found_target = True
                     break
-        time.sleep(1)
-
-if __name__ == "__main__":
-    try:
-        run_calibrated_test()
-    except pyautogui.FailSafeException:
-        print("\nStopped by user.")
+            if found_target: break
