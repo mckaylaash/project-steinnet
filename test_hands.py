@@ -28,7 +28,7 @@ def run_color_test():
         # We scan every 20th pixel to save your Mac's CPU power
         for x in range(0, width, 20):
             for y in range(0, height, 20):
-                r, g, b = screen.getpixel((x, y))
+                r, g, b = screen.getpixel((x, y))[:3]
 
                 # Logic: Is it 'Green enough'? 
                 # (High green, low red, low blue)
