@@ -52,3 +52,6 @@ def run_improved_test():
                     found_target = True
                     break
             if found_target: break
+
+if __name__ == "__main__":
+    run_improved_test()

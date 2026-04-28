@@ -39,3 +39,7 @@ def run_simple_test():
                     found = True
                     break
             if found: break
+
+
+if __name__ == "__main__":
+    run_simple_test()
