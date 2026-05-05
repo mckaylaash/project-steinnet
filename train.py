@@ -22,6 +22,10 @@ class SteinDataset(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
+        '''
+        Loads an image and its corresponding normalized coordinates from the Master Label CSV.
+        The image is transformed using the provided transformations (e.g., normalization for ResNet-18). The label is returned as a tensor of shape (2,) containing the normalized x and y coordinates
+        '''
         img_name = os.path.join(self.img_dir, self.df.iloc[idx, 0])
         image = Image.open(img_name).convert('RGB')
         # Normalized coordinates from our Master Label CSV

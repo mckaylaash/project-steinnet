@@ -4,6 +4,10 @@ import time
 pyautogui.FAILSAFE = True
 
 def run_steinnet_v3():
+    '''
+    Function to detect and chop trees in Steinworld using a simple color-based approach.
+    It scans a defined area around the center of the screen for pixels that match the color of tree trunks, checks for leaves above to confirm it's a tree, and avoids rocks by checking the blue channel. Once a tree is detected, it clicks on it, waits for the chop animation, and then clicks again to loot.
+    '''
     logical_w, logical_h = pyautogui.size()
     screenshot = pyautogui.screenshot()
     scale = screenshot.width / logical_w

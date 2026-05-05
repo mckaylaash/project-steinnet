@@ -22,6 +22,11 @@ print("3. Press 's' to START recording clicks.")
 print("4. Press 'q' to STOP and exit.")
 
 def on_click(x, y, button, pressed):
+    ''' 
+    Mouse click handler that captures the screen and saves a screenshot with the clicked coordinates encoded in the filename. It only activates when recording_active is True and the left mouse button is clicked.
+    The filename format is: target_X_Y_uuid.png, where X and Y are the pixel coordinates of the click, and uuid is a random string to ensure uniqueness.
+    
+    '''
     global recording_active
     if recording_active and pressed and button == mouse.Button.left:
         img = pyautogui.screenshot()
