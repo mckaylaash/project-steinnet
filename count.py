@@ -1,13 +1,7 @@
 import os
 
-# 1. Get the directory where count.py lives (Project-SteinNet/scripts/)
-script_dir = os.path.dirname(os.path.abspath(__file__))
-
-# 2. Go up one level to the project root (Project-SteinNet/)
-project_root = os.path.dirname(script_dir)
-
-# 3. Now point to the data folder from the root
-folder_path = os.path.join(project_root, 'data/training_data')
+# Define your folder
+folder_path = 'training_data'
 
 # List of common image extensions
 image_extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff')
