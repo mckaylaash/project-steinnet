@@ -1,22 +1,27 @@
 import torch
-import cv2
 import mss
-import numpy as np
 import pyautogui
+import argparse
 from torchvision import transforms
 from PIL import Image
 import time
+from collections import deque
 
 # Load your trained model
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = torch.load('weights/stein_net_best.pth', weights_only=False) # Path to your saved weights
+if torch.backends.mps.is_available():
+    device = torch.device("mps")
+elif torch.cuda.is_available():
+    device = torch.device("cuda")
+else:
+    device = torch.device("cpu")
+
+model = torch.load("weights/stein_net_best.pth", map_location=device, weights_only=False)
 model.to(device)
 model.eval()
 
-# Constants from your proposal
+# Inference size from training pipeline
 TARGET_SIZE = (224, 224)
-ORIG_W, ORIG_H = 1280, 720
-LATENCY_THRESHOLD = 0.100 # 100ms
+LATENCY_THRESHOLD = 0.180
 
 # Same transforms used in training
 preprocess = transforms.Compose([
@@ -25,15 +30,128 @@ preprocess = transforms.Compose([
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
-def run_agent():
-    with mss.mss() as sct:
-        # Define capture area (match your training screen area)
-        monitor = {"top": 0, "left": 0, "width": ORIG_W, "height": ORIG_H}
-        
+
+def is_tree_candidate(image, x, y):
+    """Heuristic gate to reduce shrub/rock/water misclicks."""
+    w, h = image.size
+    x = max(0, min(x, w - 1))
+    y = max(0, min(y, h - 1))
+
+    trunk_x = x
+    trunk_y = min(h - 1, y + 10)
+    canopy_x = x
+    canopy_y = max(0, y - 35)
+
+    tr, tg, tb = image.getpixel((trunk_x, trunk_y))[:3]
+    cr, cg, cb = image.getpixel((canopy_x, canopy_y))[:3]
+
+    # Trunk tends to be warm brown and darker than foliage.
+    trunk_ok = (70 <= tr <= 190) and (40 <= tg <= 140) and (20 <= tb <= 110) and (tr > tg > tb)
+    # Leaves above trunk are usually green-dominant in this biome.
+    canopy_ok = (cg > cr + 8) and (cg > cb + 8) and (cg >= 70)
+    # Reject obvious water-like blue patches.
+    water_like = cb > cg + 25 and cb > cr + 20
+
+    return trunk_ok and canopy_ok and (not water_like)
+
+
+def pick_best_tree_target(
+    image,
+    pred_x,
+    pred_y,
+    player_x,
+    player_y,
+    search_radius=180,
+    step=12,
+    prediction_weight=0.6,
+    player_weight=1.0,
+):
+    """Pick a tree-like target near player and near model prediction."""
+    w, h = image.size
+    x_min = max(0, player_x - search_radius)
+    x_max = min(w - 1, player_x + search_radius)
+    y_min = max(0, player_y - search_radius)
+    y_max = min(h - 1, player_y + search_radius)
+
+    best = None
+    best_score = float("inf")
+
+    # Exclude chat/hotbar UI region near the bottom edge.
+    ui_exclusion_y = int(h * 0.90)
+    y_max = min(y_max, ui_exclusion_y)
+
+    for y in range(y_min, y_max + 1, step):
+        for x in range(x_min, x_max + 1, step):
+            if not is_tree_candidate(image, x, y):
+                continue
+            d_pred = ((x - pred_x) ** 2 + (y - pred_y) ** 2) ** 0.5
+            d_player = ((x - player_x) ** 2 + (y - player_y) ** 2) ** 0.5
+            score = prediction_weight * d_pred + player_weight * d_player
+            if score < best_score:
+                best_score = score
+                best = (x, y)
+
+    return best
+
+
+def run_agent(
+    preview_only=False,
+    top=0,
+    left=0,
+    width=None,
+    height=None,
+    target_fps=12.0,
+    ema_alpha=0.25,
+    deadzone_px=12,
+    stable_required=3,
+    click_cooldown_frames=6,
+    tree_check=True,
+    debug_actions=False,
+    search_radius=180,
+    scan_step=12,
+    player_x_ratio=0.50,
+    player_y_ratio=0.60,
+):
+    pyautogui.FAILSAFE = True
+    pyautogui.PAUSE = 0.01
+
+    with mss.MSS() as sct:
+        # Capture only the intended game region for lower latency.
+        if width is None or height is None:
+            primary = sct.monitors[1]
+            monitor = {
+                "top": primary["top"],
+                "left": primary["left"],
+                "width": primary["width"],
+                "height": primary["height"],
+            }
+        else:
+            monitor = {"top": top, "left": left, "width": width, "height": height}
+        orig_w, orig_h = monitor["width"], monitor["height"]
+
+        # pyautogui clicks use logical coordinates on macOS (Retina aware).
+        logical_w, logical_h = pyautogui.size()
+        scale_x = orig_w / logical_w
+        scale_y = orig_h / logical_h
+
+        mode_text = "PREVIEW (move only, no clicks)" if preview_only else "LIVE (click enabled)"
+        frame_budget = 1.0 / max(target_fps, 1.0)
+        latency_history = deque(maxlen=120)
+        # Stabilization state
+        smooth_x = None
+        smooth_y = None
+        stable_frames = 0
+        last_click_frame = -10_000
+
         print("Agent Active. Press Ctrl+C to stop.")
+        print(f"Mode: {mode_text}")
+        print(f"Device: {device}, Capture: {orig_w}x{orig_h} at ({left}, {top}), Logical: {logical_w}x{logical_h}")
+        print(f"Target FPS: {target_fps:.1f} (frame budget: {frame_budget*1000:.1f} ms)")
         try:
+            frame_idx = 0
             while True:
-                start_time = time.time()
+                frame_idx += 1
+                start_time = time.perf_counter()
 
                 # 1. SENSE: Capture screen
                 screenshot = sct.grab(monitor)
@@ -45,20 +163,143 @@ def run_agent():
                 with torch.no_grad():
                     prediction = model(input_tensor) # Outputs normalized (x, y)
                     norm_x, norm_y = prediction[0].cpu().numpy()
+                    norm_x = float(min(max(norm_x, 0.0), 1.0))
+                    norm_y = float(min(max(norm_y, 0.0), 1.0))
 
-                # 3. ACT: Map back to screen pixels and click
-                target_x = int(norm_x * ORIG_W)
-                target_y = int(norm_y * ORIG_H)
-                
-                pyautogui.click(target_x, target_y)
-                time.sleep(0.1)
+                # 3. STABILIZE: smooth and apply deadzone before acting.
+                if smooth_x is None:
+                    smooth_x, smooth_y = norm_x, norm_y
+                else:
+                    smooth_x = ema_alpha * norm_x + (1.0 - ema_alpha) * smooth_x
+                    smooth_y = ema_alpha * norm_y + (1.0 - ema_alpha) * smooth_y
+
+                raw_px_x = int((norm_x * orig_w) / scale_x)
+                raw_px_y = int((norm_y * orig_h) / scale_y)
+                smooth_px_x = int((smooth_x * orig_w) / scale_x)
+                smooth_px_y = int((smooth_y * orig_h) / scale_y)
+                player_px_x = int(player_x_ratio * orig_w)
+                player_px_y = int(player_y_ratio * orig_h)
+
+                raw_step = abs(raw_px_x - smooth_px_x) + abs(raw_px_y - smooth_px_y)
+                if raw_step <= deadzone_px:
+                    stable_frames += 1
+                else:
+                    stable_frames = 0
+
+                target_x, target_y = smooth_px_x, smooth_px_y
+                tree_ok = True
+                if tree_check:
+                    focused_tree = pick_best_tree_target(
+                        img,
+                        pred_x=int(smooth_x * orig_w),
+                        pred_y=int(smooth_y * orig_h),
+                        player_x=player_px_x,
+                        player_y=player_px_y,
+                        search_radius=search_radius,
+                        step=scan_step,
+                    )
+                    if focused_tree is not None:
+                        # Map selected physical-pixel target back to logical screen coords.
+                        target_x = int(focused_tree[0] / scale_x)
+                        target_y = int(focused_tree[1] / scale_y)
+                        tree_ok = True
+                    else:
+                        tree_ok = False
+
+                if preview_only:
+                    # Move cursor only so you can validate aim safely.
+                    pyautogui.moveTo(target_x, target_y, duration=0)
+                    if frame_idx % 10 == 0:
+                        print(
+                            f"[preview] target=({target_x}, {target_y}) "
+                            f"raw=({raw_px_x}, {raw_px_y}) stable={stable_frames} "
+                            f"tree_ok={tree_ok} player=({player_px_x},{player_px_y})"
+                        )
+                else:
+                    stable_ok = stable_frames >= stable_required
+                    cooldown_ok = (frame_idx - last_click_frame) >= click_cooldown_frames
+                    ready_to_click = stable_ok and cooldown_ok
+                    if ready_to_click and tree_ok:
+                        pyautogui.click(target_x, target_y)
+                        last_click_frame = frame_idx
+                        if debug_actions:
+                            print(
+                                f"[action] click target=({target_x}, {target_y}) "
+                                f"stable={stable_frames} raw_step={raw_step}"
+                            )
+                    elif debug_actions and frame_idx % 10 == 0:
+                        print(
+                            f"[action] skip stable_ok={stable_ok} cooldown_ok={cooldown_ok} "
+                            f"tree_ok={tree_ok} stable={stable_frames} raw_step={raw_step}"
+                        )
 
                 # Check Latency
-                loop_time = time.time() - start_time
-                if loop_time > LATENCY_THRESHOLD:
-                    print(f"Warning: High Latency ({loop_time*1000:.2f}ms)")
+                loop_time = time.perf_counter() - start_time
+                latency_history.append(loop_time * 1000.0)
+                if frame_idx % 30 == 0 and latency_history:
+                    sorted_lat = sorted(latency_history)
+                    p95_idx = int(0.95 * (len(sorted_lat) - 1))
+                    p95_ms = sorted_lat[p95_idx]
+                    avg_ms = sum(latency_history) / len(latency_history)
+                    warn = " [HIGH]" if p95_ms > (LATENCY_THRESHOLD * 1000.0) else ""
+                    print(f"[latency] avg={avg_ms:.1f}ms p95={p95_ms:.1f}ms{warn}")
+
+                # Frame pacing to keep behavior stable and avoid maxing CPU/GPU.
+                sleep_needed = frame_budget - loop_time
+                if sleep_needed > 0:
+                    time.sleep(sleep_needed)
 
         except KeyboardInterrupt:
             print("Agent Stopped.")
 
-run_agent()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run SteinNet live inference agent.")
+    parser.add_argument(
+        "--preview-only",
+        action="store_true",
+        help="Move cursor to predicted target without clicking.",
+    )
+    parser.add_argument("--top", type=int, default=0, help="Capture region top coordinate.")
+    parser.add_argument("--left", type=int, default=0, help="Capture region left coordinate.")
+    parser.add_argument(
+        "--width",
+        type=int,
+        default=None,
+        help="Capture region width. Omit to use full primary display.",
+    )
+    parser.add_argument(
+        "--height",
+        type=int,
+        default=None,
+        help="Capture region height. Omit to use full primary display.",
+    )
+    parser.add_argument("--fps", type=float, default=12.0, help="Target control-loop FPS.")
+    parser.add_argument("--ema-alpha", type=float, default=0.25, help="EMA smoothing factor (0-1).")
+    parser.add_argument("--deadzone-px", type=int, default=12, help="Ignore tiny prediction jitter under this pixel delta.")
+    parser.add_argument("--stable-frames", type=int, default=3, help="Frames required in deadzone before clicking.")
+    parser.add_argument("--click-cooldown-frames", type=int, default=6, help="Minimum frames between clicks.")
+    parser.add_argument("--no-tree-check", action="store_true", help="Disable tree-color verification gate.")
+    parser.add_argument("--debug-actions", action="store_true", help="Print why clicks fire or are skipped.")
+    parser.add_argument("--search-radius", type=int, default=180, help="Local search radius around player (pixels).")
+    parser.add_argument("--scan-step", type=int, default=12, help="Pixel step size for tree candidate scan.")
+    parser.add_argument("--player-x-ratio", type=float, default=0.50, help="Player X anchor as capture-width ratio.")
+    parser.add_argument("--player-y-ratio", type=float, default=0.60, help="Player Y anchor as capture-height ratio.")
+    args = parser.parse_args()
+    run_agent(
+        preview_only=args.preview_only,
+        top=args.top,
+        left=args.left,
+        width=args.width,
+        height=args.height,
+        target_fps=args.fps,
+        ema_alpha=args.ema_alpha,
+        deadzone_px=args.deadzone_px,
+        stable_required=args.stable_frames,
+        click_cooldown_frames=args.click_cooldown_frames,
+        tree_check=not args.no_tree_check,
+        debug_actions=args.debug_actions,
+        search_radius=args.search_radius,
+        scan_step=args.scan_step,
+        player_x_ratio=args.player_x_ratio,
+        player_y_ratio=args.player_y_ratio,
+    )
