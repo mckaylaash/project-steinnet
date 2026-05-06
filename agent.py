@@ -6,6 +6,7 @@ from torchvision import transforms
 from PIL import Image
 import time
 from collections import deque
+import keyboard
 
 # Load your trained model
 if torch.backends.mps.is_available():
@@ -143,13 +144,26 @@ def run_agent(
         stable_frames = 0
         last_click_frame = -10_000
 
-        print("Agent Active. Press Ctrl+C to stop.")
+        print("Agent Active.")
+        print("Press 'S' to START the agent.")
+        print("Press 'Q' to QUIT at any time.")
+
+        # KEY PRESS START: Wait for user to hit 's'
+        keyboard.wait('s')
+        print("Starting Loop...")
+
         print(f"Mode: {mode_text}")
         print(f"Device: {device}, Capture: {orig_w}x{orig_h} at ({left}, {top}), Logical: {logical_w}x{logical_h}")
         print(f"Target FPS: {target_fps:.1f} (frame budget: {frame_budget*1000:.1f} ms)")
+
         try:
             frame_idx = 0
             while True:
+                # FAILSAFE Q PRESS: Check if 'q' is pressed
+                if keyboard.is_pressed('q'):
+                    print("User requested quit.")
+                    break
+
                 frame_idx += 1
                 start_time = time.perf_counter()
 
@@ -250,6 +264,7 @@ def run_agent(
                     time.sleep(sleep_needed)
 
         except KeyboardInterrupt:
+            pass
             print("Agent Stopped.")
 
 if __name__ == "__main__":
