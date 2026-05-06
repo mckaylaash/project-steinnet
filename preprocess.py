@@ -16,6 +16,7 @@ skipped = 0
 print("Starting normalization and resizing...")
 
 for filename in os.listdir(RAW_DIR):
+    
     if filename.endswith(".png"):
         # 1. Parse coordinates from filename: target_X_Y_uuid.png
         parts = filename.split('_')
