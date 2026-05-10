@@ -56,6 +56,54 @@ NAV_ACTION_KEYS = {
 }
 
 
+def is_greenery_candidate(image, x, y):
+    """Broad green-resource detector (trees/bush foliage style colors)."""
+    w, h = image.size
+    x = max(0, min(x, w - 1))
+    y = max(0, min(y, h - 1))
+    r, g, b = image.getpixel((x, y))[:3]
+    water_like = b > g + 20 and b > r + 20
+    return (g >= 70) and (g > r + 12) and (g > b + 10) and (not water_like)
+
+
+def estimate_path_action(image, player_x, player_y):
+    """Heuristic steering toward tan path center near player."""
+    w, h = image.size
+    x_min = max(0, player_x - 220)
+    x_max = min(w - 1, player_x + 220)
+    y_min = max(0, player_y - 20)
+    y_max = min(h - 1, player_y + 120)
+    step = 8
+
+    tan_x_values = []
+    for y in range(y_min, y_max + 1, step):
+        for x in range(x_min, x_max + 1, step):
+            r, g, b = image.getpixel((x, y))[:3]
+            # Tan/dirt-like path colors.
+            is_tan = (
+                (r >= 105)
+                and (g >= 80)
+                and (b >= 45)
+                and (r > g > b)
+                and ((r - b) >= 18)
+            )
+            if is_tan:
+                tan_x_values.append(x)
+
+    if not tan_x_values:
+        return "forward", 0.0
+
+    path_center_x = sum(tan_x_values) / len(tan_x_values)
+    offset = path_center_x - player_x
+    abs_offset = abs(offset)
+
+    if abs_offset <= 25:
+        return "forward", min(1.0, abs_offset / 25.0 + 0.5)
+    if offset < 0:
+        return "left", min(1.0, abs_offset / 140.0 + 0.35)
+    return "right", min(1.0, abs_offset / 140.0 + 0.35)
+
+
 def load_nav_model(weights_path, device_):
     if not weights_path or not os.path.exists(weights_path):
         return None, None
@@ -137,7 +185,8 @@ def pick_best_tree_target(
 
     for y in range(y_min, y_max + 1, step):
         for x in range(x_min, x_max + 1, step):
-            if not is_tree_candidate(image, x, y):
+            # Accept either strict tree signature or broader greenery targets.
+            if not (is_tree_candidate(image, x, y) or is_greenery_candidate(image, x, y)):
                 continue
             d_pred = ((x - pred_x) ** 2 + (y - pred_y) ** 2) ** 0.5
             d_player = ((x - player_x) ** 2 + (y - player_y) ** 2) ** 0.5
@@ -172,6 +221,7 @@ def run_agent(
     nav_conf_threshold=0.45,
     tree_lock_required=4,
     chop_lost_frames=18,
+    min_nav_frames_before_chop=36,
 ):
     pyautogui.FAILSAFE = True
     pyautogui.PAUSE = 0.01
@@ -180,8 +230,7 @@ def run_agent(
     if nav_enabled:
         nav_model, id_to_action = load_nav_model(nav_weights, device)
         if nav_model is None:
-            print(f"[warn] Nav model not loaded from: {nav_weights}. Running CHOP-only mode.")
-            nav_enabled = False
+            print(f"[warn] Nav model not loaded from: {nav_weights}. Using forward-only nav fallback.")
 
     with mss.MSS() as sct:
         # Capture only the intended game region for lower latency.
@@ -235,6 +284,7 @@ def run_agent(
             try:
                 frame_idx = 0
                 state = "NAVIGATE" if nav_enabled else "CHOP"
+                nav_frames = 0
                 tree_lock_frames = 0
                 tree_miss_frames = 0
                 while True:
@@ -278,9 +328,10 @@ def run_agent(
                         stable_frames += 1
                     else:
                         stable_frames = 0
+                    stable_ok = stable_frames >= stable_required
 
                     target_x, target_y = smooth_px_x, smooth_px_y
-                    tree_ok = True
+                    tree_ok = False
                     if tree_check:
                         focused_tree = pick_best_tree_target(
                             img,
@@ -298,35 +349,62 @@ def run_agent(
                             tree_ok = True
                         else:
                             tree_ok = False
+                    else:
+                        tree_ok = True
 
                     if state == "NAVIGATE":
-                        if tree_ok:
+                        nav_frames += 1
+                        if tree_ok and stable_ok:
                             tree_lock_frames += 1
                         else:
                             tree_lock_frames = 0
 
-                        if tree_lock_frames >= tree_lock_required:
+                        if nav_frames >= min_nav_frames_before_chop and tree_lock_frames >= tree_lock_required:
                             state = "CHOP"
+                            nav_frames = 0
                             tree_miss_frames = 0
                             if debug_actions:
                                 print("[state] NAVIGATE -> CHOP")
                         elif nav_enabled and frame_idx % max(nav_action_interval_frames, 1) == 0:
+                            path_action, path_conf = estimate_path_action(img, player_px_x, player_px_y)
+                            # Fallback to forward taps when nav model is missing/unavailable.
+                            if nav_model is None:
+                                if not preview_only:
+                                    pyautogui.press(path_action if path_action in NAV_ACTION_KEYS else "w")
+                                if debug_actions:
+                                    key_used = NAV_ACTION_KEYS.get(path_action, "w")
+                                    print(f"[nav] fallback action={path_action} key={key_used}")
+                                continue
                             nav_action, nav_conf = predict_nav_action(nav_model, id_to_action, input_tensor)
-                            if nav_conf >= nav_conf_threshold:
-                                key_to_press = NAV_ACTION_KEYS.get(nav_action)
+                            # Blend learned nav with tan-path steering; path heuristic wins when confident.
+                            chosen_action = nav_action
+                            chosen_conf = nav_conf
+                            if path_conf >= 0.55:
+                                chosen_action = path_action
+                                chosen_conf = path_conf
+
+                            if chosen_conf >= nav_conf_threshold:
+                                key_to_press = NAV_ACTION_KEYS.get(chosen_action)
                                 if key_to_press:
                                     if not preview_only:
                                         pyautogui.press(key_to_press)
                                     if debug_actions:
-                                        print(f"[nav] action={nav_action} conf={nav_conf:.2f} key={key_to_press}")
+                                        print(
+                                            f"[nav] action={chosen_action} conf={chosen_conf:.2f} "
+                                            f"(model={nav_action}:{nav_conf:.2f}, path={path_action}:{path_conf:.2f}) key={key_to_press}"
+                                        )
                             elif debug_actions and frame_idx % 10 == 0:
-                                print(f"[nav] low confidence: action={nav_action} conf={nav_conf:.2f}")
+                                print(
+                                    f"[nav] low confidence: chosen={chosen_action}:{chosen_conf:.2f} "
+                                    f"(model={nav_action}:{nav_conf:.2f}, path={path_action}:{path_conf:.2f})"
+                                )
 
                     if state == "CHOP":
                         if not tree_ok:
                             tree_miss_frames += 1
                             if nav_enabled and tree_miss_frames >= chop_lost_frames:
                                 state = "NAVIGATE"
+                                nav_frames = 0
                                 tree_lock_frames = 0
                                 if debug_actions:
                                     print("[state] CHOP -> NAVIGATE")
@@ -343,7 +421,6 @@ def run_agent(
                                     f"tree_ok={tree_ok} player=({player_px_x},{player_px_y})"
                                 )
                         else:
-                            stable_ok = stable_frames >= stable_required
                             cooldown_ok = (frame_idx - last_click_frame) >= click_cooldown_frames
                             ready_to_click = stable_ok and cooldown_ok
                             if ready_to_click and tree_ok:
@@ -411,6 +488,13 @@ if __name__ == "__main__":
     parser.add_argument("--scan-step", type=int, default=12, help="Pixel step size for tree candidate scan.")
     parser.add_argument("--player-x-ratio", type=float, default=0.50, help="Player X anchor as capture-width ratio.")
     parser.add_argument("--player-y-ratio", type=float, default=0.60, help="Player Y anchor as capture-height ratio.")
+    parser.add_argument("--chop-only", action="store_true", help="Disable nav behavior and only chop trees.")
+    parser.add_argument("--nav-weights", type=str, default=NAV_WEIGHTS_DEFAULT, help="Path nav model checkpoint path.")
+    parser.add_argument("--nav-action-interval", type=int, default=3, help="Frames between nav actions.")
+    parser.add_argument("--nav-conf-threshold", type=float, default=0.45, help="Min nav confidence to press movement key.")
+    parser.add_argument("--tree-lock-frames", type=int, default=4, help="Tree-valid frames required to switch NAVIGATE->CHOP.")
+    parser.add_argument("--chop-lost-frames", type=int, default=18, help="Tree-missing frames required to switch CHOP->NAVIGATE.")
+    parser.add_argument("--min-nav-frames-before-chop", type=int, default=36, help="Minimum frames to stay in NAVIGATE before allowing CHOP.")
     args = parser.parse_args()
     run_agent(
         preview_only=args.preview_only,
@@ -429,4 +513,11 @@ if __name__ == "__main__":
         scan_step=args.scan_step,
         player_x_ratio=args.player_x_ratio,
         player_y_ratio=args.player_y_ratio,
+        nav_enabled=not args.chop_only,
+        nav_weights=args.nav_weights,
+        nav_action_interval_frames=args.nav_action_interval,
+        nav_conf_threshold=args.nav_conf_threshold,
+        tree_lock_required=args.tree_lock_frames,
+        chop_lost_frames=args.chop_lost_frames,
+        min_nav_frames_before_chop=args.min_nav_frames_before_chop,
     )
