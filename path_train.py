@@ -1,4 +1,6 @@
-"""Train a path navigation classifier from path dataset splits."""
+# This file is responsible for training the SteinNet model on the preprocessed dataset for the navigation task.
+# It loads the images and labels from the CSV, applies necessary transformations,
+# and trains a ResNet-18 regression model to predict the normalized coordinates for the navigation/path task.
 
 import os
 import torch
@@ -9,17 +11,17 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import models, transforms
 
 
-TRAIN_CSV = "path_processed/path_labels_train.csv"
-VAL_CSV = "path_processed/path_labels_val.csv"
-IMAGE_DIR = "path_training_data"
-WEIGHTS_PATH = "weights/path_nav_net_best.pth"
+train_csv = "path_processed/path_labels_train.csv"
+val_csv = "path_processed/path_labels_val.csv"
+image_dir = "path_training_data"
+weights_path = "weights/path_nav_net_best.pth"
 
-NUM_CLASSES = 4
-BATCH_SIZE = 32
-NUM_EPOCHS = 12
-LR = 1e-3
+num_classes = 4
+batch_size = 32
+num_epochs = 12
+learning_rate= 1e-3
 
-ID_TO_ACTION = {
+action_id = {
     0: "forward",
     1: "left",
     2: "backward",
@@ -27,6 +29,7 @@ ID_TO_ACTION = {
 }
 
 
+# custom dataset class to load images and labels for nav task
 class PathDataset(Dataset):
     def __init__(self, dataframe, img_dir, transform=None):
         self.df = dataframe.reset_index(drop=True)
@@ -45,7 +48,7 @@ class PathDataset(Dataset):
             image = self.transform(image)
         return image, label
 
-
+# evaluates the model on the validation set and returns average loss and accuracy 
 def evaluate(model, dataloader, criterion, device):
     model.eval()
     total_loss = 0.0
@@ -66,17 +69,11 @@ def evaluate(model, dataloader, criterion, device):
     return avg_loss, acc
 
 
+# main training function that loads data and model and runs training loop
 def main():
-    if not os.path.exists(TRAIN_CSV) or not os.path.exists(VAL_CSV):
-        print("Error: missing path split CSVs.")
-        print("Run: python path_preprocess.py")
-        return
 
-    train_df = pd.read_csv(TRAIN_CSV)
-    val_df = pd.read_csv(VAL_CSV)
-    if train_df.empty or val_df.empty:
-        print("Error: train/val split is empty.")
-        return
+    train_df = pd.read_csv(train_csv)
+    val_df = pd.read_csv(val_csv)
 
     if torch.backends.mps.is_available():
         device = torch.device("mps")
@@ -92,31 +89,30 @@ def main():
     ])
 
     train_loader = DataLoader(
-        PathDataset(train_df, IMAGE_DIR, transform),
-        batch_size=BATCH_SIZE,
+        PathDataset(train_df, image_dir, transform),
+        batch_size=batch_size,
         shuffle=True,
     )
     val_loader = DataLoader(
-        PathDataset(val_df, IMAGE_DIR, transform),
-        batch_size=BATCH_SIZE,
+        PathDataset(val_df, image_dir, transform),
+        batch_size=batch_size,
         shuffle=False,
     )
 
+    # load in model
     model = models.resnet18(weights="IMAGENET1K_V1")
     in_features = model.fc.in_features
-    model.fc = nn.Linear(in_features, NUM_CLASSES)
+    model.fc = nn.Linear(in_features, num_classes)
     model.to(device)
 
+    # use cross-entropy loss since classification task and Adam optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=LR)
-
-    print(f"Training path nav model on {device}...")
-    print(f"Train samples: {len(train_df)}, Val samples: {len(val_df)}")
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     best_val_acc = -1.0
     os.makedirs("weights", exist_ok=True)
 
-    for epoch in range(NUM_EPOCHS):
+    for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
         for inputs, labels in train_loader:
@@ -134,7 +130,7 @@ def main():
         train_loss = running_loss / max(len(train_loader), 1)
         val_loss, val_acc = evaluate(model, val_loader, criterion, device)
         print(
-            f"Epoch {epoch + 1}/{NUM_EPOCHS} "
+            f"Epoch {epoch + 1}/{num_epochs} "
             f"- train_loss={train_loss:.4f} val_loss={val_loss:.4f} val_acc={val_acc:.3f}"
         )
 
@@ -142,14 +138,10 @@ def main():
             best_val_acc = val_acc
             payload = {
                 "model_state_dict": model.state_dict(),
-                "id_to_action": ID_TO_ACTION,
-                "num_classes": NUM_CLASSES,
+                "id_to_action": action_id,
+                "num_classes": num_classes,
             }
-            torch.save(payload, WEIGHTS_PATH)
-            print(f"Saved new best model to {WEIGHTS_PATH} (val_acc={val_acc:.3f})")
-
-    print(f"Done. Best validation accuracy: {best_val_acc:.3f}")
-
+            torch.save(payload, weights_path)
 
 if __name__ == "__main__":
     main()
