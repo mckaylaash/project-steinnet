@@ -13,7 +13,6 @@ import os
 
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
-# Dataset Class
 class SteinDataset(Dataset):
     def __init__(self, dataframe, img_dir, transform=None):
         self.df = dataframe
@@ -26,12 +25,11 @@ class SteinDataset(Dataset):
     def __getitem__(self, idx):
         
         
-        # Loads an image and its corresponding normalized coordinates from the labels CSV.
-        # The image is transformed using the provided transformations (e.g., normalization for ResNet-18). The label is returned as a tensor of shape (2,) containing the normalized x and y coordinates
+        # loads image and its normalized coordinates from the labels CSV
+        # transformed and label returned as tensor of shape (2,) with the normalized x and y coordinates
         
         img_name = os.path.join(self.img_dir, self.df.iloc[idx, 0])
         image = Image.open(img_name).convert('RGB')
-        # Normalized coordinates from our Master Label CSV
         label = torch.tensor([self.df.iloc[idx, 1], self.df.iloc[idx, 2]], dtype=torch.float32)
 
         if self.transform:
@@ -67,7 +65,6 @@ else:
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001) # we optimize with Adam
 
 
-    # TRAINING LOOP
     num_epochs = 10 
 
     for epoch in range(num_epochs):
