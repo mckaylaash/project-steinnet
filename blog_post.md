@@ -146,32 +146,24 @@ Even without explicit object detection, the network learned useful visual associ
 ### Video demos
 
 1. **Harvesting** — Agent identifies a target and performs repeated interactions.
-<video width="100%" autoplay loop muted playsinline>
-  <source src="blog_figures/goes%20to%20tree%20and%20chops.mp4" type="video/mp4">
-</video>
+
+https://github.com/user-attachments/assets/edffdd67-164f-4a84-89ad-067940a5a0b9
+
+
 
 2. **Path following** — Direction classifier plus heuristic steering along visible dirt/stone.
-<video width="100%" autoplay loop muted playsinline>
-  <source src="blog_figures/accurate%20path%20following%20and%20chop.mp4" type="video/mp4">
-</video>
+
+https://github.com/user-attachments/assets/9956accd-a3ba-4bc9-82ef-0dec7df16119
 
 3. **Alternate region** — Behavior outside the tightest training distribution.
-<video width="100%" autoplay loop muted playsinline>
-  <source src="blog_figures/good%20behavior.mp4" type="video/mp4">
-</video>
+
+https://github.com/user-attachments/assets/31bd13cb-7f09-48bd-af0a-93adde3a6323
+
 
 4. **Failure case (wasp)** — Model imitates “swing near a tree” visuals and hits wrong object.
-<video width="100%" autoplay loop muted playsinline>
-  <source src="blog_figures/Unintentional%20Fighting%20with%20Wasp.mp4" type="video/mp4">
-</video>
 
----
 
-### Full System Walkthrough
-**Real-time demo of manual play transitioning into agent control.**
-<video width="100%" controls>
-  <source src="blog_figures/real%20time%20demo%20of%20normal%20playing%20then%20starting%20of%20agent%20and%20swinging%20at%20bush.mp4" type="video/mp4">
-</video>
+https://github.com/user-attachments/assets/48276b23-4f79-408c-b909-12a6d52a22ac
 
 ---
 
