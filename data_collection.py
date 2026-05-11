@@ -4,9 +4,9 @@ import uuid
 import os
 
 
-SAVE_PATH = "training_data"
-if not os.path.exists(SAVE_PATH):
-    os.makedirs(SAVE_PATH)
+path = "training_data"
+if not os.path.exists(path):
+    os.makedirs(path)
 
 # adjust dimensions to Mac screen size
 logical_w, logical_h = pyautogui.size()
@@ -27,7 +27,7 @@ def on_click(x, y, button, pressed):
         img = pyautogui.screenshot()
         pixel_x, pixel_y = int(x * SCALE), int(y * SCALE)
         
-        filename = f"{SAVE_PATH}/target_{pixel_x}_{pixel_y}_{uuid.uuid4().hex[:6]}.png"
+        filename = f"{path}/target_{pixel_x}_{pixel_y}_{uuid.uuid4().hex[:6]}.png"
         img.save(filename)
         print(f"Captured: {pixel_x}, {pixel_y}")
 
