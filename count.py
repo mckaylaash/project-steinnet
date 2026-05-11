@@ -1,7 +1,7 @@
 import os
 
 # Define your folder
-folder_path = 'training_data'
+folder_path = 'path_training_data'
 
 # List of common image extensions
 image_extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff')
