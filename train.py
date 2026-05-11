@@ -1,3 +1,7 @@
+# This file trains a ResNet-18 model to predict the normalized coordinates of the Stein from images. 
+# It uses a custom Dataset class to load images and labels, applies necessary transformations, 
+# and implements a training loop with MSE loss. The trained model is saved for later use in inference.
+
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -7,11 +11,9 @@ from PIL import Image  # FIX 1: Added this import
 import pandas as pd
 import os
 
-# --- Configuration & Device Setup ---
-# FIX 2: Define the device (MPS for Mac, CUDA for NVIDIA, or CPU)
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
-# 1. Dataset Class
+# Dataset Class
 class SteinDataset(Dataset):
     def __init__(self, dataframe, img_dir, transform=None):
         self.df = dataframe
@@ -22,10 +24,11 @@ class SteinDataset(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
-        '''
-        Loads an image and its corresponding normalized coordinates from the Master Label CSV.
-        The image is transformed using the provided transformations (e.g., normalization for ResNet-18). The label is returned as a tensor of shape (2,) containing the normalized x and y coordinates
-        '''
+        
+        
+        # Loads an image and its corresponding normalized coordinates from the labels CSV.
+        # The image is transformed using the provided transformations (e.g., normalization for ResNet-18). The label is returned as a tensor of shape (2,) containing the normalized x and y coordinates
+        
         img_name = os.path.join(self.img_dir, self.df.iloc[idx, 0])
         image = Image.open(img_name).convert('RGB')
         # Normalized coordinates from our Master Label CSV
@@ -35,13 +38,13 @@ class SteinDataset(Dataset):
             image = self.transform(image)
         return image, label
 
-# 2. Pixel Normalization (ImageNet standards for ResNet-18)
+# pixel normalization (ImageNet standards for ResNet-18)
 transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
-# 3. Train/Validation Split (80/20)
+# train/validation split (80/20)
 if not os.path.exists('labels.csv'):
     print("Error: Run preprocess.py first to generate labels.csv!")
 else:
@@ -51,22 +54,21 @@ else:
     train_loader = DataLoader(SteinDataset(train_df, 'processed_data', transform), batch_size=32, shuffle=True)
     val_loader = DataLoader(SteinDataset(val_df, 'processed_data', transform), batch_size=32)
 
-    # 4. Build the Model (ResNet-18 Regression)
+    # build the model (ResNet-18 Regression)
     model = models.resnet18(weights='IMAGENET1K_V1')
     num_ftrs = model.fc.in_features
-    # Replace the final classification layer with a Linear Regression Head
+
+    # replace the final classification layer with a linear regression head
     model.fc = nn.Linear(num_ftrs, 2) 
     model.to(device)
 
-    # 5. Loss and Optimizer[cite: 1]
-    criterion = nn.MSELoss() # Defined in ANN Proposal.pdf[cite: 1]
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    # loss and optimizer
+    criterion = nn.MSELoss() # use MLE for regression task 
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001) # we optimize with Adam
 
-    print(f"Ready! Training on {len(train_df)} samples, Validating on {len(val_df)}.")
 
-    # --- Training Loop ---
+    # TRAINING LOOP
     num_epochs = 10 
-    print("Starting Training...")
 
     for epoch in range(num_epochs):
         model.train()
@@ -85,7 +87,6 @@ else:
         
         print(f"Epoch {epoch+1}/{num_epochs} - Loss: {running_loss/len(train_loader):.4f}")
 
-    # --- Save the Weights ---
+    # save weights to stein_net_best.pth
     os.makedirs('weights', exist_ok=True)
     torch.save(model, 'weights/stein_net_best.pth')
-    print("Weights saved! Your agent now has a brain.")
