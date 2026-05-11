@@ -45,10 +45,10 @@ def main():
     train_df.to_csv(train_csv, index=False)
     val_df.to_csv(val_csv, index=False)
 
-    print(f"Saved cleaned dataset: {full_csv} ({len(df)} samples)")
-    print(f"Saved train split: {train_csv} ({len(train_df)} samples)")
-    print(f"Saved val split: {val_csv} ({len(val_df)} samples)")
-    print("Class counts:")
+    print(f"cleaned dataset: {full_csv} ({len(df)} samples)")
+    print(f"train split: {train_csv} ({len(train_df)} samples)")
+    print(f"val split: {val_csv} ({len(val_df)} samples)")
+    print("classes:")
     print(df["action"].value_counts().to_string())
 
 
