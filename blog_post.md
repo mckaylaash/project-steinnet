@@ -62,7 +62,7 @@ After preprocessing (below), our master label file `labels.csv` aligns ~1,114 la
 - Press `r` to toggle recording.
 - While recording, each W / A / S / D or arrow key* press saves a frame to `path_training_data/` and appends a row to `path_labels.csv` (filename, action label, timestamp).
 
-We collected ~500 directional frames. Class balance reflects *where we walked.
+We collected ~500 directional frames. Class balance reflects where we walked.
 
 **Figure 1 — Navigation class balance**  
 ![Navigation class balance distribution](blog_figures/nav_class_distribution.png)  
