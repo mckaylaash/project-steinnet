@@ -1,30 +1,31 @@
+# This file is responsible for preprocessing the raw screenshots and generating 
+# the labels CSV (labels.csv) that contains the normalized coordinates for each image for 
+# the chopping task. 
+
 import os
 import pandas as pd
 from PIL import Image
 
-# Configuration from your proposal
-RAW_DIR = 'training_data'
-PROC_DIR = 'processed_data'
-IMG_SIZE = (224, 224)
+raw_dataset = 'training_data'
+processed_dataset = 'processed_data'
+size = (224, 224)
 
-if not os.path.exists(PROC_DIR):
-    os.makedirs(PROC_DIR)
+if not os.path.exists(processed_dataset):
+    os.makedirs(processed_dataset           )
 
 data_log = []
 skipped = 0
 
-print("Starting normalization and resizing...")
-
-for filename in os.listdir(RAW_DIR):
+for filename in os.listdir(raw_dataset):
     
     if filename.endswith(".png"):
-        # 1. Parse coordinates from filename: target_X_Y_uuid.png
+        # split based on naming convention
         parts = filename.split('_')
         pixel_x = int(parts[1])
         pixel_y = int(parts[2])
         
-        # 2. Open source screenshot and normalize with true image dimensions.
-        img_path = os.path.join(RAW_DIR, filename)
+        # open source image and normalize
+        img_path = os.path.join(raw_dataset, filename)
         img = Image.open(img_path).convert('RGB')
         img_w, img_h = img.size
         if img_w <= 0 or img_h <= 0:
@@ -34,25 +35,19 @@ for filename in os.listdir(RAW_DIR):
         norm_x = pixel_x / img_w
         norm_y = pixel_y / img_h
 
-        # Skip malformed labels that fall outside the image bounds.
-        if not (0.0 <= norm_x <= 1.0 and 0.0 <= norm_y <= 1.0):
-            skipped += 1
-            continue
-
-        # 3. Image Resizing
-        img_resized = img.resize(IMG_SIZE, Image.BILINEAR)
+        # resiize and save image
+        img_resized = img.resize(size, Image.BILINEAR)
         
         proc_filename = f"proc_{filename}"
-        img_resized.save(os.path.join(PROC_DIR, proc_filename))
+        img_resized.save(os.path.join(processed_dataset, proc_filename))
         
-        # 4. Log for the Master Label file
+        # log into labels CSV
         data_log.append({
             'filename': proc_filename,
             'x': norm_x,
             'y': norm_y
         })
 
-# Save the Master Label file
+# Save the labels CSV
 df = pd.DataFrame(data_log)
 df.to_csv('labels.csv', index=False)
-print(f"Success! Created labels.csv with {len(data_log)} images (skipped {skipped}).")

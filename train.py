@@ -1,4 +1,4 @@
-# This file trains a ResNet-18 model to predict the normalized coordinates of the Stein from images. 
+# This file trains a ResNet-18 model to predict the normalized coordinates of the Stein from images for the Chopping task. 
 # It uses a custom Dataset class to load images and labels, applies necessary transformations, 
 # and implements a training loop with MSE loss. The trained model is saved for later use in inference.
 
