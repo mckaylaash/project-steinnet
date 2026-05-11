@@ -1,12 +1,3 @@
-"""Collect navigation training data from movement key presses.
-
-Use for:python path_data_collection.py
-
-Controls:
-  - Press R to start/pause recording
-  - Press ESC to quit
-  - While recording, every W/A/S/D or Arrow key press captures a screenshot
-"""
 
 import csv
 import os
@@ -20,6 +11,8 @@ from pynput import keyboard
 save_dir = "path_training_data"
 path = "path_labels.csv"
 key = "r"
+
+# collect navigation training data from WASD/arrow
 
 movement_key = {
     "w": "forward",
