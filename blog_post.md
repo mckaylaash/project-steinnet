@@ -17,7 +17,7 @@ However, these methods are fragile. If the lighting changes, the player moves to
 We wanted to explore whether a CNN could learn actual useful gameplay simply from imputed screenshots of real human play. Rather than hardcoding exact interactive rules, the project approached playing the game as a supervised learning problem. We used the following pipeline of capturing screenshots during human gameplay, recording actions associated with the screenshots, and training a neural network to imitate those actions. We focus on two essential connected tasks:
 1. Predicting where a player would click from a screenshot in order to hit a tree
 2. Predicting movement directions from gameplay frames
-We then combined these components into a live inference system that was capable of navigating and harvesting trees semi autonomously.
+We then combined these components into a live inference system that was capable of navigating and harvesting trees semi autonomously by capturing the screen, running a prediction, and then sending mouse and keyboard movement.
 
 ### Research question
 
@@ -104,7 +104,9 @@ We collected ~500 directional frames. Class balance reflects *where we walked.
 
 ### Resources needed to reproduce
 - Hardware: A Mac or PC capable of running PyTorch; GPU/MPS speeds training and inference but CPU works for small models.
-- *Game: Steinworld in the browser, windowed consistently with how you recorded data.
+- Game: Steinworld in the browser, windowed consistently with how you recorded data.
+- Software: Python, PyTorch, torchvision, and the libraries used in the repo (for example `pandas`, `scikit-learn`, `Pillow`, `mss`, `pyautogui`, `pynput`).
+- Game setup: Stein.world in the browser, with window and UI consistent with how training and test datset was recorded
 ---
 
 ## Results
@@ -141,26 +143,26 @@ Even without explicit object detection, the network learned useful visual associ
 **Figure 5 — Confusion matrix**  
 ![Navigation model confusion matrix](blog_figures/NavConfusionMatrix.png)
 
-**Caption:** The model shows exceptional performance on "right" movement (100% accuracy). The minor leakage between the others suggests some visual similarity in the pathing textures in those specific directions.
+**Caption:** The model shows exceptional performance on "right" movement (100% accuracy) which suggests we perhaps collected data that was too skewed this way or that majority of the task involves paths moving to the right. The minor leakage between the others suggests some visual similarity in the pathing textures in those specific directions.
 
 ### Video demos
 
-1. **Harvesting** — Agent identifies a target and performs repeated interactions.
+1. **Harvesting** — Agent identifies a target and performs chopping interaction.
 
 https://github.com/user-attachments/assets/edffdd67-164f-4a84-89ad-067940a5a0b9
 
 
 
-2. **Path following** — Direction classifier plus heuristic steering along visible dirt/stone.
+2. **Path following** — Direction classifier plus heuristic steering along visible dirt.
 
 https://github.com/user-attachments/assets/9956accd-a3ba-4bc9-82ef-0dec7df16119
 
-3. **Alternate region** — Behavior outside the tightest training distribution.
+3. **Alternate region** — Behavior outside the tightest training distribution with a stone path.
 
 https://github.com/user-attachments/assets/31bd13cb-7f09-48bd-af0a-93adde3a6323
 
 
-4. **Failure case (wasp)** — Model imitates “swing near a tree” visuals and hits wrong object.
+4. **Failure case (wasp)** — Model imitates “swing near a tree” visuals and hits wrong object, iniates suprising battle with wasp.
 
 
 https://github.com/user-attachments/assets/48276b23-4f79-408c-b909-12a6d52a22ac
@@ -175,6 +177,7 @@ Looking at Figure 2, we see a dense cluster of predictions. This highlights a cl
 
 Additionally, Figure 4 shows that our "15px goal" was highly ambitious. In practice, the agent is still successful because game objects are larger than 15 pixels. This demonstrates a key takeaway: The required precision of a model is defined by the environment's tolerance.
 
+This sits in the same family as imitation learning in robotics and driving: map images to actions from demonstrations. A known failure mode is distribution shift, once the agent drifts into unfamiliar visuals, predictions can collapse. Our shrub confusion and wasp failure are small, relatable versions of that pattern.
 
 ### Challenges
 A key challenge we faced thorughout the project was barriers in data collection. Logisitcially we were not far enough along in the game to be able to harvest every type of tree/greenery. This first forced us to have an extremely small dataset where the neural network and agent were not able to perform meaningfully. As a result we spent a lot of time in the data collection and cleaning phase with 1) playing the game and 2) verifying every screenshot was actually usable (no accidental clicks, etc.). 
@@ -199,6 +202,9 @@ More broadly, SteinNet demonstrates how machine learning can transform interacti
 ---
 
 ## Links and reproducibility checklist
+- **Blog post:** *[add link]*
+- **Source Code:** *[add link]*
+- **Figures:** *[add link]*
 ---
 
 ## Appendix: repository map
