@@ -143,12 +143,31 @@ Even without explicit object detection, the network learned useful visual associ
 
 **Caption:** The model shows exceptional performance on "right" movement (100% accuracy). The minor leakage between the others suggests some visual similarity in the pathing textures in those specific directions.
 
-### Video demos (replace placeholders with links or embeds)
+### Video demos
 
-1. **Harvesting** — Agent identifies a target and performs repeated interactions.  
-2. **Path following** — Direction classifier plus heuristic steering along visible dirt/stone.  
-3. **Alternate region** — Behavior outside the tightest training distribution.  
-4. **Failure case (wasp)** — Model imitates “swing near a tree” visuals and hits wrong object
+1. **Harvesting** — Agent identifies a target and performs repeated interactions.
+<video width="100%" autoplay loop muted playsinline>
+  <source src="blog_figures/goes%20to%20tree%20and%20chops.mov" type="video/quicktime">
+  Your browser does not support the video tag.
+</video>
+
+2. **Path following** — Direction classifier plus heuristic steering along visible dirt/stone.
+<video width="100%" autoplay loop muted playsinline>
+  <source src="blog_figures/accurate%20path%20following%20and%20chop.mov" type="video/quicktime">
+  Your browser does not support the video tag.
+</video>
+
+3. **Alternate region** — Behavior outside the tightest training distribution.
+<video width="100%" autoplay loop muted playsinline>
+  <source src="blog_figures/good%20behavior.mov" type="video/quicktime">
+  Your browser does not support the video tag.
+</video>
+
+4. **Failure case (wasp)** — Model imitates “swing near a tree” visuals and hits wrong object.
+<video width="100%" autoplay loop muted playsinline>
+  <source src="blog_figures/Unintentional%20Fighting%20with%20Wasp.mov" type="video/quicktime">
+  Your browser does not support the video tag.
+</video>
 
 ---
 
