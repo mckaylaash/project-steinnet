@@ -65,7 +65,7 @@ After preprocessing (below), our master label file `labels.csv` aligns ~1,114 la
 We collected ~500 directional frames. Class balance reflects *where we walked.
 
 **Figure 1 — Navigation class balance**  
-*[Use the bar chart from `performance_analysis.ipynb`; save final PNG as `blog_figures/fig1_nav_class_balance.png`]*  
+![Navigation class balance distribution](blog_figures/nav_class_distribution.png)  
 **Caption:** Distribution of movement labels in our path dataset. Skew toward *right* reflects the specific route we took (e.g. Farshore-style paths), not universal game statistics.
 
 ### Preprocessing (`preprocess.py`, `path_preprocess.py`)
@@ -117,16 +117,20 @@ Qualitatively, the model often focused on:
 - visually distinct environmental regions
 - interactable objects near the player
 
+
 **Figure 2 — Predicted vs. true coordinates**  
-*[Scatter from `performance_analysis.ipynb`; `blog_figures/fig2_pred_vs_true.png`]*  
+![Scatter plot of predicted vs true coordinates](blog_figures/Tree_True_v_Predicted.png)
+
 **Caption:** Predicted coordinates cluster near the identity line, indicating strong agreement between human and model click locations. The model occasionally regresses toward center-biased predictions when uncertain.
 
 **Figure 3 — Pixel error histogram**  
-*[Histogram; `blog_figures/fig3_pixel_error_hist.png`]*  
+![Histogram of pixel error](blog_figures/Tree_Click_Pixel_Error_Regression.png)
+
 **Caption:** Euclidean distance between predicted and expert clicks after mapping back to screen pixels. Most errors land in a moderate band; a tail of larger errors corresponds to unusual frames (UI open, rare angles, objects not seen in training).
 
 **Figure 4 — Cumulative distribution of error (CDF)**  
-*[CDF plot; `blog_figures/fig4_error_cdf.png`]*  
+![CDF of prediction error](blog_figures/Tree_Error_Regression_CDF.png)
+
 **Caption:** Most click predictions fall within a moderate pixel error range. While the model often exceeds our original 15-pixel target, many predictions still succeed because in-game harvesting hitboxes are substantially larger than a single pixel.
 
 Even without explicit object detection, the network learned useful visual associations through imitation learning. In many cases, predictions landed very close to expert click locations and produced believable gameplay behavior.
@@ -135,7 +139,8 @@ Even without explicit object detection, the network learned useful visual associ
 ### Navigation
 
 **Figure 5 — Confusion matrix**  
-*[From `performance_analysis.ipynb`; `blog_figures/fig5_nav_confusion.png`]*  
+![Navigation model confusion matrix](blog_figures/NavConfusionMatrix.png)
+
 **Caption:** The model shows exceptional performance on "right" movement (100% accuracy). The minor leakage between the others suggests some visual similarity in the pathing textures in those specific directions.
 
 ### Video demos (replace placeholders with links or embeds)
