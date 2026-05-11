@@ -8,23 +8,18 @@ SAVE_PATH = "training_data"
 if not os.path.exists(SAVE_PATH):
     os.makedirs(SAVE_PATH)
 
-# Auto-calibrate Retina
+# adjust dimensions to Mac screen size
 logical_w, logical_h = pyautogui.size()
 SCALE = pyautogui.screenshot().width / logical_w
 
-# State control
 recording_active = False
 
-print(f"--- DATA COLLECTION (Scale: {SCALE}) ---")
-print("1. Switch to Steinworld.")
-print("2. Position your character.")
-print("3. Press 's' to START recording clicks.")
-print("4. Press 'q' to STOP and exit.")
+print("press 's' to start, 'q' to quit.")
 
 def on_click(x, y, button, pressed):
     ''' 
     Mouse click handler that captures the screen and saves a screenshot with the clicked coordinates encoded in the filename. It only activates when recording_active is True and the left mouse button is clicked.
-    The filename format is: target_X_Y_uuid.png, where X and Y are the pixel coordinates of the click, and uuid is a random string to ensure uniqueness.
+    filename format is target_X_Y_uuid.png, where X and Y are the pixel coordinates of the click, and uuid is a random string for uniqueness.
     
     '''
     global recording_active
@@ -41,14 +36,13 @@ def on_press(key):
     try:
         if key.char == 's':
             recording_active = True
-            print(">> RECORDING STARTED. Go chop some trees!")
         elif key.char == 'q':
-            print(">> STOPPING...")
-            return False # Stops the listener
+            print("end")
+            return False 
     except AttributeError:
         pass
 
-# Start both listeners
+# start keyboard and mouse "listener", or ability to capture
 with mouse.Listener(on_click=on_click) as m_listener:
     with keyboard.Listener(on_press=on_press) as k_listener:
         k_listener.join()

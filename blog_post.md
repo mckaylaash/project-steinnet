@@ -17,7 +17,7 @@ However, these methods are fragile. If the lighting changes, the player moves to
 We wanted to explore whether a CNN could learn actual useful gameplay simply from imputed screenshots of real human play. Rather than hardcoding exact interactive rules, the project approached playing the game as a supervised learning problem. We used the following pipeline of capturing screenshots during human gameplay, recording actions associated with the screenshots, and training a neural network to imitate those actions. We focus on two essential connected tasks:
 1. Predicting where a player would click from a screenshot in order to hit a tree
 2. Predicting movement directions from gameplay frames
-We then combined these components into a live inference system that was capable of navigating and harvesting trees semi autonomously.
+We then combined these components into a live inference system that was capable of navigating and harvesting trees semi autonomously by capturing the screen, running a prediction, and then sending mouse and keyboard movement.
 
 ### Research question
 
@@ -104,7 +104,9 @@ We collected ~500 directional frames. Class balance reflects *where we walked.
 
 ### Resources needed to reproduce
 - Hardware: A Mac or PC capable of running PyTorch; GPU/MPS speeds training and inference but CPU works for small models.
-- *Game: Steinworld in the browser, windowed consistently with how you recorded data.
+- Game: Steinworld in the browser, windowed consistently with how you recorded data.
+- Software: Python, PyTorch, torchvision, and the libraries used in the repo (for example `pandas`, `scikit-learn`, `Pillow`, `mss`, `pyautogui`, `pynput`).
+- Game setup: Stein.world in the browser, with window and UI consistent with how training and test datset was recorded
 ---
 
 ## Results
@@ -116,7 +118,6 @@ Qualitatively, the model often focused on:
 - nearby tree clusters
 - visually distinct environmental regions
 - interactable objects near the player
-
 
 **Figure 2 — Predicted vs. true coordinates**  
 ![Scatter plot of predicted vs true coordinates](blog_figures/Tree_True_v_Predicted.png)
@@ -135,39 +136,84 @@ Qualitatively, the model often focused on:
 
 Even without explicit object detection, the network learned useful visual associations through imitation learning. In many cases, predictions landed very close to expert click locations and produced believable gameplay behavior.
 
+#### Quantitative evaluation
+
+The click regression model was evaluated on a held-out 20% validation split (\(n = 223\)).
+
+| Metric | Value |
+|---|---|
+| Mean squared error (normalized coordinates) | 0.00347 |
+| RMSE per axis | 0.0833 |
+| Mean pixel error | 59.3 px |
+| Median pixel error | 54.9 px |
+| 90th percentile pixel error | 93.9 px |
+| 95th percentile pixel error | 107.5 px |
+
+To better understand practical gameplay usability, we also measured the percentage of predictions that landed within fixed radii of the expert click location.
+
+| Radius Threshold | Hit Rate |
+|---|---|
+| ≤ 15 px | 1.3% |
+| ≤ 25 px | 9.4% |
+| ≤ 40 px | 30.0% |
+| ≤ 50 px | 45.7% |
+| ≤ 80 px | 83.9% |
+
+Although the model rarely achieved extremely precise clicks (≤15 px), performance improved substantially at larger radii. Importantly, in-game harvesting targets occupy significantly more than a single pixel, meaning that many predictions remained functionally successful despite moderate coordinate error.
+
 
 ### Navigation
 
 **Figure 5 — Confusion matrix**  
 ![Navigation model confusion matrix](blog_figures/NavConfusionMatrix.png)
 
-**Caption:** The model shows exceptional performance on "right" movement (100% accuracy). The minor leakage between the others suggests some visual similarity in the pathing textures in those specific directions.
+**Caption:** The model shows exceptional performance on "right" movement (100% accuracy) which suggests we perhaps collected data that was too skewed this way or that majority of the task involves paths moving to the right. The minor leakage between the others suggests some visual similarity in the pathing textures in those specific directions.
+
+#### Classification performance
+
+The navigation model achieved **94.1% validation accuracy** on a held-out validation set (\(n = 101\)).
+
+| Class | Precision | Recall | F1-score |
+|---|---|---|---|
+| Forward | 0.962 | 0.862 | 0.909 |
+| Left | 0.933 | 0.875 | 0.903 |
+| Backward | 0.952 | 1.000 | 0.976 |
+| Right | 0.923 | 1.000 | 0.960 |
+
+The model performed especially well on "right" and "backward" movement classes, while "forward" and "left" exhibited slightly more confusion. This likely reflects both dataset imbalance and visual similarity between some path configurations.
+
+### Inference performance
+
+Inference timing was measured on Apple Silicon using PyTorch MPS acceleration.
+
+| Model | Mean Latency | p95 Latency | Approx. Max FPS |
+|---|---|---|---|
+| Click regression | 3.59 ms | 4.12 ms | 278.7 FPS |
+| Navigation classifier | 3.67 ms | 4.02 ms | 272.8 FPS |
+
+These results demonstrate that lightweight CNN-based gameplay agents can operate comfortably in real time, even on consumer hardware.
 
 ### Video demos
 
-1. **Harvesting** — Agent identifies a target and performs repeated interactions.
-<video width="100%" autoplay loop muted playsinline>
-  <source src="blog_figures/goes%20to%20tree%20and%20chops.mov" type="video/quicktime">
-  Your browser does not support the video tag.
-</video>
+1. **Harvesting** — Agent identifies a target and performs chopping interaction.
 
-2. **Path following** — Direction classifier plus heuristic steering along visible dirt/stone.
-<video width="100%" autoplay loop muted playsinline>
-  <source src="blog_figures/accurate%20path%20following%20and%20chop.mov" type="video/quicktime">
-  Your browser does not support the video tag.
-</video>
+https://github.com/user-attachments/assets/edffdd67-164f-4a84-89ad-067940a5a0b9
 
-3. **Alternate region** — Behavior outside the tightest training distribution.
-<video width="100%" autoplay loop muted playsinline>
-  <source src="blog_figures/good%20behavior.mov" type="video/quicktime">
-  Your browser does not support the video tag.
-</video>
 
-4. **Failure case (wasp)** — Model imitates “swing near a tree” visuals and hits wrong object.
-<video width="100%" autoplay loop muted playsinline>
-  <source src="blog_figures/Unintentional%20Fighting%20with%20Wasp.mov" type="video/quicktime">
-  Your browser does not support the video tag.
-</video>
+
+2. **Path following** — Direction classifier plus heuristic steering along visible dirt.
+
+https://github.com/user-attachments/assets/9956accd-a3ba-4bc9-82ef-0dec7df16119
+
+3. **Alternate region** — Behavior outside the tightest training distribution with a stone path.
+
+https://github.com/user-attachments/assets/31bd13cb-7f09-48bd-af0a-93adde3a6323
+
+
+4. **Failure case (wasp)** — Model imitates “swing near a tree” visuals and hits wrong object, iniates suprising battle with wasp.
+
+
+https://github.com/user-attachments/assets/48276b23-4f79-408c-b909-12a6d52a22ac
 
 ---
 
@@ -177,18 +223,14 @@ One of the most interesting findings from the project was how effectively relati
 
 Looking at Figure 2, we see a dense cluster of predictions. This highlights a classic behavioral cloning challenge: the model learns the "average" of the expert's behavior. If I usually click near the center of the screen to harvest, the model becomes hesitant to predict clicks near the extreme edges of the browser window.
 
-Additionally, Figure 4 shows that our "15px goal" was highly ambitious. In practice, the agent is still successful because game objects are larger than 15 pixels. This demonstrates a key takeaway: The required precision of a model is defined by the environment's tolerance.
+Additionally, Figure 4 shows that our "15px goal" was highly ambitious. In practice, the agent is still successful because game objects are larger than 15 pixels. This demonstrates a key takeaway: The required precision of a model is defined by the environment's tolerance. Our quantitative evaluation reinforces this point. While the mean click error was approximately 59 pixels, the agent still frequently succeeded because harvesting hitboxes occupy relatively large screen regions. In practice, functional gameplay behavior depended less on exact pixel-perfect regression and more on predicting semantically reasonable interaction regions.
 
+This sits in the same family as imitation learning in robotics and driving: map images to actions from demonstrations. A known failure mode is distribution shift, once the agent drifts into unfamiliar visuals, predictions can collapse. Our shrub confusion and wasp failure are small, relatable versions of that pattern.
 
-### Challenges and mitigations
+### Challenges
+A key challenge we faced thorughout the project was barriers in data collection. Logisitcially we were not far enough along in the game to be able to harvest every type of tree/greenery. This first forced us to have an extremely small dataset where the neural network and agent were not able to perform meaningfully. As a result we spent a lot of time in the data collection and cleaning phase with 1) playing the game and 2) verifying every screenshot was actually usable (no accidental clicks, etc.). 
 
-| Challenge | What happened | Mitigation |
-|-----------|----------------|------------|
-| **Retina / coordinate mismatch** | Labels looked valid but were “off” in normalized space; model saturated corners. | Normalize \(x,y\) by **actual image width/height** in `preprocess.py`. |
-| **Jittery clicks** | Cursor jumped frame-to-frame. | Temporal smoothing, dead-zones, “stable for N frames” before clicking. |
-| **Shrubs vs. trees** | Greenery everywhere; regression chases the wrong clump. | Local search near player + simple color / structure heuristics + later data diversity. |
-| **Distribution shift** | New biome or UI → worse predictions. | Acknowledge limits; collect broader data or add detection stages. |
-| **Long-horizon autonomy** | Small navigation errors compound; rare hostile clicks. | Keep human supervision; future work could add explicit state (health bar, target nameplate) or RL fine-tuning. |
+Another challenge we faced was completing our stretch goal for navigating along the path. To do this we had to slightly modify the code to adapt it to the change of classification task for 4 classes. This modification required thought in how we would restructure the neural network and connect the two tasks together. If we had more time, we believe that spending more time in the game and enhancing the dataset could vastly help improve overall performance of the model and extend to completing other parts of the game.
 
 ---
 
@@ -199,15 +241,18 @@ Our project explored whether a lightweight vision model could learn gameplay beh
 - estimate movement directions
 - execute a semi-autonomous harvesting loop
 
-Although the agent remains imperfect, the project demonstrates how surprisingly far simple imitation learning techniques can go in visually structured environments. The project also highlighted the challenges involved in deploying machine learning systems in real-time interactive settings, particularly when predictions must remain stable over long sequences of actions.
+Although the agent remains imperfect, the project demonstrates how surprisingly far simple imitation learning techniques can go in visually structured environments. Despite using relatively small datasets (~1,100 harvesting samples and ~500 navigation frames), the system achieved 94% navigation accuracy while maintaining reasonable inference speeds. The project also highlighted the challenges involved in deploying machine learning systems in real-time interactive settings, particularly when predictions must remain stable over long sequences of actions.
 
 **Future work:** larger and more diverse datasets; explicit object detection or segmentation; reading on-screen **target nameplates** if the game exposes them; reinforcement learning or human-in-the-loop correction; safer navigation with map-like memory.
 
-More broadly, SteinNet demonstrates how machine learning can transform interaction problems traditionally solved through rigid scripting into adaptive, data-driven systems.
+More broadly, SteinNet demonstrates how machine learning can transform interaction problems traditionally solved through rigid scripting into adaptive, data-driven systems. 
 
 ---
 
 ## Links and reproducibility checklist
+- **Blog post:** *[https://github.com/mckaylaash/Project-SteinNet/blob/main/blog_post.md]*
+- **Source Code:** *[(https://github.com/mckaylaash/Project-SteinNet)]*
+- **Figures:** *[https://github.com/mckaylaash/Project-SteinNet/tree/main/blog_figures]*
 ---
 
 ## Appendix: repository map
