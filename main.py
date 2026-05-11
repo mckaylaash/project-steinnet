@@ -1,1 +1,0 @@
-print("SteinNet is online")
