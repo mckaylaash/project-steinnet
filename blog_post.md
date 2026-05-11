@@ -34,7 +34,7 @@ In order to achieve a semi-autonomous gameplay, the agent also had to understand
 ---
 
 ## Methodology and data
-The project uses a machine learning approach that imitates learning demonstrated by a human training set. Instead of manually defining gameplay, we connected examples of our own gameplay. For this process, we first started with screenshotting a datapoint every time we clicked on a tree to chop it, in this way the system recorded both the actual image and the action being performed. We hypothesized that if we collected enough samples when chopping down the trees, the neural network may begin to associate certain visual patterns with likely player actions!
+The project uses a machine learning approach that imitates learning demonstrated by a human training set. Instead of manually defining gameplay, we connected examples of our own gameplay. For this process, we first started with screenshotting a datapoint every time we clicked on a tree to chop it, in this way the system recorded both the actual image and the action being performed. We hypothesized that if we collected enough samples when chopping down the trees, the neural network may begin to associate certain visual patterns with likely player actions.
 
 ### High-level design
 
@@ -85,10 +85,10 @@ We collected ~500 directional frames. Class balance reflects where we walked.
 
 **Shared backbone:** **ResNet-18** from `torchvision`, pretrained on ImageNet.
 
-- **Click model:** replace the final classification layer with a **linear layer with 2 outputs**. Train with **Adam** (learning rate `1e-3`), **batch size 32**, **10 epochs**, **80/20 train–validation split** (`random_state=42`). Save full model to `weights/stein_net_best.pth`.
-- **Navigation model:** replace the head with **4 logits**. Train with **cross-entropy**; save best checkpoint plus metadata (class map, state dict) to `weights/path_nav_net_best.pth`.
+- **Click model:** replace the final classification layer with a **linear layer with 2 outputs**. Train with **Adam optimizer** (learning rate `1e-3`), **batch size 32**, **10 epochs**, **80/20 train–validation split** (`random_state=42`). Save full model to `weights/stein_net_best.pth`.
+- **Navigation model:** replace the final classification layer with **4 logits**. Train with **cross-entropy**; save best checkpoint plus metadata (class map, state dict) to `weights/path_nav_net_best.pth`.
 
-**Why MSE for clicks?** It penalizes large pixel errors more than small ones—reasonable for regression. **Why cross-entropy for movement?** Standard choice for multi-class classification.
+**We chose MSE for clicks because it penalizes large pixel errors more than small ones—reasonable for regression. We chose cross-entropy for movement because it compares the model's predicted probability against the true label, and it is the standard choice for multi-class classification.
 
 ### Live agent (`agent.py`)
 
