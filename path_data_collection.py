@@ -1,7 +1,6 @@
 """Collect navigation training data from movement key presses.
 
-Usage:
-  python path_data_collection.py
+Use for:python path_data_collection.py
 
 Controls:
   - Press R to start/pause recording
@@ -18,11 +17,11 @@ import pyautogui
 from pynput import keyboard
 
 
-SAVE_DIR = "path_training_data"
-LOG_PATH = "path_labels.csv"
-TOGGLE_KEY = "r"
+save_dir = "path_training_data"
+path = "path_labels.csv"
+key = "r"
 
-ACTION_KEYS = {
+movement_key = {
     "w": "forward",
     "a": "left",
     "s": "backward",
@@ -33,25 +32,25 @@ ACTION_KEYS = {
     keyboard.Key.right: "right",
 }
 
-
+# make sure path/folder exists o/w make it
 def ensure_paths():
-    os.makedirs(SAVE_DIR, exist_ok=True)
-    if not os.path.exists(LOG_PATH):
-        with open(LOG_PATH, "w", newline="") as f:
+    os.makedirs(save_dir, exist_ok=True)
+    if not os.path.exists(path):
+        with open(path, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["filename", "action", "timestamp"])
 
-
-def append_log_row(filename, action, timestamp_s):
-    with open(LOG_PATH, "a", newline="") as f:
+# write row to csv
+def add_to_csv(filename, action, timestamp_s):
+    with open(path, "a", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([filename, action, timestamp_s])
 
 
 def action_from_key(key):
     if hasattr(key, "char") and key.char:
-        return ACTION_KEYS.get(key.char.lower())
-    return ACTION_KEYS.get(key)
+        return movement_key.get(key.char.lower())
+    return movement_key.get(key)
 
 
 def main():
@@ -60,23 +59,18 @@ def main():
 
     state = {"recording": False}
 
-    print("--- PATH DATA COLLECTION ---")
-    print("1. Switch to Steinworld.")
-    print("2. Press 'R' to START/PAUSE recording.")
-    print("3. While recording, move with WASD or Arrow keys.")
-    print("4. Press ESC to quit.")
+    print("collection has begun:")
+    print("press 'R' to start/pause recording, move with WASD/arrow, Esc to quit")
 
     def on_press(key):
-        # Quit at any time.
+        # failsafe
         if key == keyboard.Key.esc:
-            print("Stopping collector.")
+            print("stopping")
             return False
 
-        # Toggle recording mode.
-        if hasattr(key, "char") and key.char and key.char.lower() == TOGGLE_KEY:
+        if hasattr(key, "char") and key.char and key.char.lower() == key:
             state["recording"] = not state["recording"]
             status = "STARTED" if state["recording"] else "PAUSED"
-            print(f">> RECORDING {status}")
             return
 
         if not state["recording"]:
@@ -88,12 +82,11 @@ def main():
 
         timestamp_ms = int(time.time() * 1000)
         filename = f"nav_{action}_{timestamp_ms}_{uuid.uuid4().hex[:6]}.png"
-        output_path = os.path.join(SAVE_DIR, filename)
+        output_path = os.path.join(save_dir, filename)
 
         img = pyautogui.screenshot()
         img.save(output_path)
-        append_log_row(filename, action, timestamp_ms / 1000.0)
-        print(f"Captured: {filename} -> {action}")
+        add_to_csv(filename, action, timestamp_ms / 1000.0)
 
     with keyboard.Listener(on_press=on_press) as listener:
         listener.join()
