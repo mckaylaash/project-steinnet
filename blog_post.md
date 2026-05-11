@@ -88,7 +88,7 @@ We collected ~500 directional frames. Class balance reflects where we walked.
 - **Click model:** replace the final classification layer with a **linear layer with 2 outputs**. Train with **Adam optimizer** (learning rate `1e-3`), **batch size 32**, **10 epochs**, **80/20 train–validation split** (`random_state=42`). Save full model to `weights/stein_net_best.pth`.
 - **Navigation model:** replace the final classification layer with **4 logits**. Train with **cross-entropy**; save best checkpoint plus metadata (class map, state dict) to `weights/path_nav_net_best.pth`.
 
-We chose MSE for clicks because it penalizes large pixel errors more than small ones, which isreasonable for regression. We chose cross-entropy for movement because it compares the model's predicted probability against the true label, and it is the standard choice for multi-class classification.
+We chose MSE for clicks because it penalizes large pixel errors more than small ones, which is reasonable for regression. We chose cross-entropy for movement because it compares the model's predicted probability against the true label, and it is the standard choice for multi-class classification.
 
 ### Live agent (`agent.py`)
 
