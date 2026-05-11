@@ -230,7 +230,10 @@ This sits in the same family as imitation learning in robotics and driving: map 
 ### Challenges
 A key challenge we faced thorughout the project was barriers in data collection. Logisitcially we were not far enough along in the game to be able to harvest every type of tree/greenery. This first forced us to have an extremely small dataset where the neural network and agent were not able to perform meaningfully. As a result we spent a lot of time in the data collection and cleaning phase with 1) playing the game and 2) verifying every screenshot was actually usable (no accidental clicks, etc.). 
 
-Another challenge we faced was completing our stretch goal for navigating along the path. To do this we had to slightly modify the code to adapt it to the change of classification task for 4 classes. This modification required thought in how we would restructure the neural network and connect the two tasks together. If we had more time, we believe that spending more time in the game and enhancing the dataset could vastly help improve overall performance of the model and extend to completing other parts of the game.
+Another issue was our model mixing up other green objects to be trees. We chose to lower the search area under the chop phase and also increase our dataset for the specific tree chopping task.
+
+An additional challenge we faced was completing our stretch goal for navigating along the path. To do this we had to slightly modify the code to adapt it to the change of classification task for 4 classes. This modification required thought in how we would restructure the neural network and connect the two tasks together. If we had more time, we believe that spending more time in the game and enhancing the dataset could vastly help improve overall performance of the model and extend to completing other parts of the game.
+
 
 ---
 
