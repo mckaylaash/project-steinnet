@@ -7,7 +7,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torchvision import models, transforms
 from sklearn.model_selection import train_test_split
-from PIL import Image  # FIX 1: Added this import
+from PIL import Image  
 import pandas as pd
 import os
 
@@ -76,7 +76,7 @@ else:
             
             optimizer.zero_grad()
             outputs = model(inputs)
-            loss = criterion(outputs, labels) # Calculate MSE[cite: 1]
+            loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             
