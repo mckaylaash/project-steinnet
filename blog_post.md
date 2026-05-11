@@ -202,9 +202,9 @@ More broadly, SteinNet demonstrates how machine learning can transform interacti
 ---
 
 ## Links and reproducibility checklist
-- **Blog post:** *[add link]*
-- **Source Code:** *[add link]*
-- **Figures:** *[add link]*
+- **Blog post:** *[https://github.com/mckaylaash/Project-SteinNet/blob/main/blog_post.md]*
+- **Source Code:** *[(https://github.com/mckaylaash/Project-SteinNet)]*
+- **Figures:** *[https://github.com/mckaylaash/Project-SteinNet/tree/main/blog_figures]*
 ---
 
 ## Appendix: repository map
