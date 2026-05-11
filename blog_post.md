@@ -176,15 +176,10 @@ Looking at Figure 2, we see a dense cluster of predictions. This highlights a cl
 Additionally, Figure 4 shows that our "15px goal" was highly ambitious. In practice, the agent is still successful because game objects are larger than 15 pixels. This demonstrates a key takeaway: The required precision of a model is defined by the environment's tolerance.
 
 
-### Challenges and mitigations
+### Challenges
+A key challenge we faced thorughout the project was barriers in data collection. Logisitcially we were not far enough along in the game to be able to harvest every type of tree/greenery. This first forced us to have an extremely small dataset where the neural network and agent were not able to perform meaningfully. As a result we spent a lot of time in the data collection and cleaning phase with 1) playing the game and 2) verifying every screenshot was actually usable (no accidental clicks, etc.). 
 
-| Challenge | What happened | Mitigation |
-|-----------|----------------|------------|
-| **Retina / coordinate mismatch** | Labels looked valid but were “off” in normalized space; model saturated corners. | Normalize \(x,y\) by **actual image width/height** in `preprocess.py`. |
-| **Jittery clicks** | Cursor jumped frame-to-frame. | Temporal smoothing, dead-zones, “stable for N frames” before clicking. |
-| **Shrubs vs. trees** | Greenery everywhere; regression chases the wrong clump. | Local search near player + simple color / structure heuristics + later data diversity. |
-| **Distribution shift** | New biome or UI → worse predictions. | Acknowledge limits; collect broader data or add detection stages. |
-| **Long-horizon autonomy** | Small navigation errors compound; rare hostile clicks. | Keep human supervision; future work could add explicit state (health bar, target nameplate) or RL fine-tuning. |
+Another challenge we faced was completing our stretch goal for navigating along the path. To do this we had to slightly modify the code to adapt it to the change of classification task for 4 classes. This modification required thought in how we would restructure the neural network and connect the two tasks together. If we had more time, we believe that spending more time in the game and enhancing the dataset could vastly help improve overall performance of the model and extend to completing other parts of the game.
 
 ---
 
